@@ -232,18 +232,16 @@ async def lifespan(_: FastAPI):
     await ptb_app.bot.setWebhook(webhook_endpoint)
     logger.info(f"Webhook set: {webhook_endpoint}")
     
-    # 3. Start bot and Teardown
+    # 3. Start bot
     async with ptb_app:
         await ptb_app.start()
-        
-        yield  # The FastAPI server runs here
-        
-        # 4. Teardown happens BEFORE the bot fully stops
-        cleanup_task.cancel()
-        await ptb_app.bot.deleteWebhook()
+        yield
         await ptb_app.stop()
         
-    logger.info("Webhook removed and task canceled cleanly.")
+    # 4. Teardown
+    cleanup_task.cancel()
+    await ptb_app.bot.deleteWebhook()
+    logger.info("Webhook removed.")
 
 app = FastAPI(lifespan=lifespan)
 
