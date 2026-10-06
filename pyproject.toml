@@ -1,0 +1,25 @@
+[project]
+name = "forja-urbana-customer-bot-pro"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Amanda Iglesias Moreno", email = "amandaiglesiasmoreno@.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.142.2",
+    "openai>=3.24.0",
+    "pgvector>=0.5.0",
+    "psycopg2-binary>=2.9.13",
+    "pypdf>=6.19.0",
+    "python-telegram-bot>=22.8",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+forja-urbana-customer-bot-pro = "forja_urbana_customer_bot_pro:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
