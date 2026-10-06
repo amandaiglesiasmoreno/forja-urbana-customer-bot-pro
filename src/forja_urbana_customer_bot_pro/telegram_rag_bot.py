@@ -103,39 +103,36 @@ def retrieve_context(query: str, k: int = 5) -> list[str]:
 
     return [content for content, distance in rows]
 
-async def reformulate_query(history: list[dict], current_query: str) -> str:
-    # 1. Early exit for empty history
+def reformulate_query(history: list[dict], current_query: str) -> str:
     if not history:
         return current_query
         
-    # 2. Stronger System Prompt
     system_prompt = (
-        "Given the chat history and the user's latest message, rewrite the latest "
-        "message into a standalone query that can be understood without context. "
-        "If the message is a greeting, a simple acknowledgment, or already self-contained, "
-        "return it exactly as is. DO NOT answer the question, ONLY return the rewritten text."
+        "You are an expert query reformulation assistant for a RAG system. "
+        "Your task is to analyze the chat history and rewrite the user's latest message "
+        "into a complete, standalone query that requires no prior context to be understood.\n\n"
+        "Apply these core strategies where necessary:\n"
+        "1. Resolve Pronouns: Replace ambiguous pronouns (e.g., it, he, them, that) with the specific entities mentioned previously.\n"
+        "2. Clarify Implicit Comparisons: If the user asks about a new element in relation to a previously discussed one, explicitly name both elements to form a comparative query.\n"
+        "3. Complete Elliptical Queries: Fill in missing subjects, verbs, or context that the user omitted assuming you would remember.\n\n"
+        "STRICT CONSTRAINTS:\n"
+        "- If the latest message is a greeting, conversational filler, or already fully self-contained, return it EXACTLY as is.\n"
+        "- DO NOT attempt to answer the question.\n"
+        "- OUTPUT ONLY the reformulated query text. Do not include quotes, prefixes like 'Rewritten query:', or explanations."
     )
-    
-    messages = [{"role": "system", "content": system_prompt}]
+
+    messages = [
+        {"role": "system", "content": system_prompt}
+    ]
     messages.extend(history)
-    messages.append({"role": "user", "content": current_query})
+    messages.append({"role": "user", "content": f"Latest message: {current_query}"})
     
-    try:
-        # 3. Non-blocking Async Call & Resource Limits
-        response = await async_openai_client.chat.completions.create(
-            model=LLM_MODEL,
-            messages=messages,
-            temperature=0, 
-            max_tokens=256 
-        )
-        
-        rewritten_query = response.choices[0].message.content.strip()
-        return rewritten_query
-        
-    except Exception as e:
-        # 4. Graceful Fallback on Failure
-        logging.error(f"Query reformulation failed: {e}. Falling back to original query.")
-        return current_query
+    response = openai_client.chat.completions.create(
+        model=LLM_MODEL,
+        messages=messages,
+        temperature=0
+    )
+    return response.choices[0].message.content
 
 async def rag_answer(session_id: str, original_query: str) -> str:
     # 1. Fetch history & Reformulate
