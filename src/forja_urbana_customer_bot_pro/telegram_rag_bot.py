@@ -103,22 +103,39 @@ def retrieve_context(query: str, k: int = 5) -> list[str]:
 
     return [content for content, distance in rows]
 
-def reformulate_query(history: list[dict], current_query: str) -> str:
+async def reformulate_query(history: list[dict], current_query: str) -> str:
+    # 1. Early exit for empty history
     if not history:
         return current_query
         
-    messages = [
-        {"role": "system", "content": "Given the chat history, rewrite the user's latest message into a standalone query that can be understood without context. Return ONLY the rewritten query."}
-    ]
-    messages.extend(history)
-    messages.append({"role": "user", "content": f"Latest message: {current_query}"})
-    
-    response = openai_client.chat.completions.create(
-        model=LLM_MODEL,
-        messages=messages,
-        temperature=0
+    # 2. Stronger System Prompt
+    system_prompt = (
+        "Given the chat history and the user's latest message, rewrite the latest "
+        "message into a standalone query that can be understood without context. "
+        "If the message is a greeting, a simple acknowledgment, or already self-contained, "
+        "return it exactly as is. DO NOT answer the question, ONLY return the rewritten text."
     )
-    return response.choices[0].message.content
+    
+    messages = [{"role": "system", "content": system_prompt}]
+    messages.extend(history)
+    messages.append({"role": "user", "content": current_query})
+    
+    try:
+        # 3. Non-blocking Async Call & Resource Limits
+        response = await async_openai_client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=messages,
+            temperature=0, 
+            max_tokens=256 
+        )
+        
+        rewritten_query = response.choices[0].message.content.strip()
+        return rewritten_query
+        
+    except Exception as e:
+        # 4. Graceful Fallback on Failure
+        logging.error(f"Query reformulation failed: {e}. Falling back to original query.")
+        return current_query
 
 async def rag_answer(session_id: str, original_query: str) -> str:
     # 1. Fetch history & Reformulate
